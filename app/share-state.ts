@@ -1,9 +1,12 @@
 export type ViewState={position:[number,number,number];target:[number,number,number];rotation:number};
-export type SharedScene={version:1;image:string|null;background:string;lightIntensity:number;lightHardness:number;labelHeight:number;labelBottom:number;auto:boolean;view?:ViewState};
+export type SharedScene={version:1|2;image:string|null;variants?:{id:string;image:string}[];activeVariant?:string;background:string;lightIntensity:number;lightHardness:number;labelHeight:number;labelBottom:number;auto:boolean;view?:ViewState};
 export function validateScene(s:unknown):SharedScene {
  const p=s as SharedScene;const finite=(v:unknown,min:number,max:number)=>typeof v==='number'&&Number.isFinite(v)&&v>=min&&v<=max;
- if(!p||p.version!==1||!(p.image===null||typeof p.image==='string'&&/^data:image\/png;base64,[A-Za-z0-9+/=]+$/.test(p.image)&&p.image.length<20000000)||!(/^#[0-9a-fA-F]{6}$/.test(p.background)||p.background==='gradient')||!finite(p.lightIntensity,25,200)||!finite(p.lightHardness,0,100)||!finite(p.labelHeight,10,120)||!finite(p.labelBottom,4,124-p.labelHeight)||typeof p.auto!=='boolean')throw new Error('This preview link is invalid or incomplete.');
+ if(!p||![1,2].includes(p.version)||!(p.image===null||typeof p.image==='string'&&/^data:image\/png;base64,[A-Za-z0-9+/=]+$/.test(p.image)&&p.image.length<20000000)||!(/^#[0-9a-fA-F]{6}$/.test(p.background)||p.background==='gradient')||!finite(p.lightIntensity,25,200)||!finite(p.lightHardness,0,100)||!finite(p.labelHeight,10,120)||!finite(p.labelBottom,4,124-p.labelHeight)||typeof p.auto!=='boolean')throw new Error('This preview link is invalid or incomplete.');
  if(p.view){for(const v of [p.view.position,p.view.target])if(!Array.isArray(v)||v.length!==3||!v.every(n=>finite(n,-100,100)))throw new Error('Invalid camera settings.');if(!finite(p.view.rotation,-1e9,1e9))throw new Error('Invalid rotation.');const d=Math.hypot(...p.view.position.map((n,i)=>n-p.view!.target[i]));if(d<.1||d>30)throw new Error('Invalid camera distance.');}
+ if(p.version===2){
+  if(!Array.isArray(p.variants)||p.variants.length>3||new Set(p.variants.map(v=>v.id)).size!==p.variants.length||p.variants.some(v=>!['A','B','C'].includes(v.id)||typeof v.image!=='string'||!/^data:image\/png;base64,[A-Za-z0-9+/=]+$/.test(v.image)||v.image.length>=20000000)||p.variants.length>0&&!p.variants.some(v=>v.id===p.activeVariant))throw new Error('Invalid label variants.');
+ }
  return p;
 }
 export async function encodeShare(scene:SharedScene):Promise<string>{

@@ -12,6 +12,7 @@ export async function POST(request:Request){
  try{
   const text=await request.text();if(new TextEncoder().encode(text).length>3800000)return Response.json({error:'This artwork is too large to share. Please use a smaller PNG.'},{status:413});
   const p=validateScene(JSON.parse(text));
+  if(p.version!==1)return Response.json({error:'Multi-label shares must use /api/review.'},{status:400,headers:{'Cache-Control':'no-store'}});
   const scene={version:p.version,image:p.image,background:p.background,lightIntensity:p.lightIntensity,lightHardness:p.lightHardness,labelHeight:p.labelHeight,labelBottom:p.labelBottom,auto:p.auto,view:p.view};
   const id=randomUUID();await put(`previews/${id}.json`,JSON.stringify(scene),{access:'public',addRandomSuffix:false,allowOverwrite:false,contentType:'application/json',cacheControlMaxAge:31536000});
   return Response.json({id},{status:201,headers:{'Cache-Control':'no-store'}});

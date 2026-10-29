@@ -39,10 +39,38 @@ The key/fill rig and reflection environment follow the camera orientation every 
 
 Light intensity scales the direct sources and environment together (25–200%). Light hardness controls the sampled softbox spread, reflection-card width and PCF shadow radius (0% broad/soft, 100% small/focused). The reflection map is regenerated once the hardness slider settles; intensity does not rebuild it. Both controls are locked during recording.
 
-## Share preview
+## Multi-Label Studio and Share
 
-Share preview saves an immutable scene snapshot to the public `slim-studio-previews` Vercel Blob store and returns a short `/share?id=…` URL. The store is linked to the existing Vercel project and supplies `BLOB_READ_WRITE_TOKEN` to production and preview deployments; no token is exposed to the client. Anyone with the URL can view the snapshot without an account. The applied PNG, label dimensions, lighting, background, automatic rotation and camera pose are preserved. Later editor changes do not alter existing links.
+The existing studio supports Variant A / B / C, with up to three PNG artworks. Upload, replace, arrange, cancel and remove operate on the selected variant. Label height and distance from the bottom are common; artwork size and placement are individual. Changing the common height repaints other variants from their local sources. Switching variants preserves the single Canvas, camera, can rotation, lights and background. Video records the selected variant; switching is locked during recording. PNG input remains limited to 25 MiB, with an additional 32-megapixel / 16384-pixel-per-side safety limit checked before decoding.
 
-The viewer contains only the canvas and orbit/pan/zoom/reset/fullscreen controls. It works in a fresh browser session after the creator closes the editor. There are no upload, editing, lighting adjustment or recording controls. Sharing does not grant access to the creator's editor.
+New shares are immutable v2 JSON snapshots in the existing **public** Vercel Blob store. Prepared artwork is embedded as PNG Base64; original source files and filenames are not shared. The **whole JSON** must fit in 22,000,000 bytes. The browser still uploads directly (multipart) through `/api/share/upload`; the large payload does not pass through a Vercel Function request or response.
 
-The creation endpoint limits payloads to 3.8 MB, validates scene data, restricts image types to embedded PNG and applies a best-effort per-instance request limit. Public snapshots have unguessable UUIDs. There is no expiry or revocation interface yet. Storage usage is managed in the project's Vercel Blob settings. Previous self-contained fragment links remain readable, with bounded decompression and schema validation.
+Creation uses three steps:
+
+1. `POST /api/review` issues a random ID and a ten-minute HMAC ticket, signed using the server-only Blob credential. The existing per-instance best-effort rate limit is retained.
+2. Direct client upload writes only `review-v2/payloads/<id>.json`. The upload route validates the ticket, path, content type and size, disallows overwrites, and sets a 60-second public cache lifetime. Client upload cannot write manifests.
+3. `PUT /api/review` verifies the ticket, uploaded size and v2 scene schema, then creates the small immutable server manifest at `review-v2/manifests/<id>.json`. Server creation time starts the fixed **120-hour** lifetime. The manifest contains ID, version, creation/expiration times and exact payload paths. Retries do not extend expiration. The returned viewer URL uses `/share?review=<id>`.
+
+`GET /api/review/<id>` returns an uncached status and public payload URL while active, HTTP 410 after expiration, and HTTP 404 when the manifest is absent. Viewer displays **This share link has expired** or **Share project not found** respectively. An open viewer has an expiration timer and rechecks status when the tab becomes visible. Server time determines the initial timer interval.
+
+### Cleanup and activation
+
+`vercel.json` schedules `/api/cron/reviews` once daily at 03:17 UTC (daily frequency suitable for Hobby). It takes effect only when this source is deployed. Configure a strong `CRON_SECRET` in Vercel before activating the deployment; Vercel sends it as `Authorization: Bearer ...`. A missing or incorrect secret fails closed with 401. Even with a valid secret, cleanup returns 403 unless VERCEL_ENV is production; Preview and development cannot run deletion. VERCEL_ENV is supplied by Vercel, not a new custom variable. Keep the existing `BLOB_READ_WRITE_TOKEN` binding. No deployed settings or storage are changed by local tests/builds.
+
+The job paginates only the new prefixes. It validates each manifest and exact project-owned paths before deleting expired payloads. Active projects, malformed manifests, old `previews/` files and unrelated files are not deleted. Per-project failures are isolated and reported as counts, without logging artwork or credentials. A failed payload deletion leaves its manifest and paths for the next run. Missing payload deletion is idempotent.
+
+The tiny manifest itself serves as the expiration marker, containing no artwork or scene settings. It is retained until **expiresAt + 7 days**, then deleted only after all payload deletions have succeeded. If cleanup is delayed past that date, payload and marker can be deleted in the same successful run. Unfinalized payloads older than 24 hours are removed only when no manifest exists; their ten-minute creation tickets have already expired. A manifest read failure does not authorize orphan deletion.
+
+Physical deletion happens at the next successful daily run, not at the exact access deadline. At high volumes, monitor runtime and failures: a function timeout interrupts the scan, and another successful run is needed. The job performs no editor operations and cannot remove browser-local images/settings.
+
+### Public storage limitations and legacy links
+
+The viewer blocks access at expiration, but a direct public Blob URL may remain accessible until physical cleanup, and previously cached or downloaded copies cannot be revoked. The short cache lifetime reduces cache persistence; it does not provide confidentiality. The API's status is always `no-store`.
+
+Existing `/share?id=...` v1 snapshots, their public `previews/` files, the legacy creation API and bounded self-contained fragment links remain supported. They do not acquire an expiration and are outside the cleanup prefixes. No migration or deletion of old files is performed.
+
+### Validation
+
+Run `npm test` and `npm run build`. New tests cover v2 schema limits, signed upload tickets, exact expiration boundaries, marker retention, deletion retry safety, path isolation, viewer API statuses, Cron authentication and pagination. Browser smoke checks should include desktop/mobile variant switching, unchanged camera/Canvas, common label dimensions, cancellation/removal, WebM export, new/legacy viewers, and open-tab expiration. Cloud Blob upload/cleanup should be verified in an isolated test prefix before production activation; local mocked tests do not prove the deployed store binding or Cron configuration.
+
+Manual Preview review, environment setup and an isolated deletion-test procedure are documented in [docs/manual-testing.md](docs/manual-testing.md). Do not run real cleanup against the production store during PR review.
