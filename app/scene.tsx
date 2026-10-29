@@ -62,7 +62,7 @@ function CameraControls({p}:{p:Props}) {
 }
 export default function Scene(p:Props){
  const turn=useRef({active:false,start:0,duration:6});
- return <Canvas shadows={{type:THREE.PCFShadowMap}} dpr={p.recording?1:[1,2]} camera={{position:[1.6,.85,4.3],fov:30}} gl={{antialias:true,alpha:true,preserveDrawingBuffer:true,toneMapping:THREE.ACESFilmicToneMapping,toneMappingExposure:1.12}}>
+ return <Canvas className="scene-canvas" shadows={{type:THREE.PCFShadowMap}} dpr={p.recording?1:[1,2]} camera={{position:[1.6,.85,4.3],fov:30}} gl={{antialias:true,alpha:true,preserveDrawingBuffer:true,toneMapping:THREE.ACESFilmicToneMapping,toneMappingExposure:1.12}}>
  <StudioLighting intensity={p.lightIntensity} hardness={p.lightHardness}/>
  <Can p={p} turn={turn}/>
  <ContactShadows frames={1} position={[0,-.675,0]} opacity={.35} scale={5} blur={2.8} far={2}/>

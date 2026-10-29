@@ -42,3 +42,9 @@ Do not run this against the existing production store. No real cleanup is perfor
 7. Dispose of only the dedicated test store/fixtures after approval. Do not use production credentials for this procedure.
 
 Public payload URLs can remain accessible until physical deletion and previously cached/downloaded copies cannot be revoked. The status API is no-store; new Blob objects use a short cache lifetime. Physical deletion waits for the next successful daily run. Monitor failures and scan duration before increasing usage.
+
+## Automated three-label Share regression
+
+After `npm ci`, run `npx playwright install chromium`, `npm run build`, then `npm run test:share`. If Chromium is already installed, set `PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH` to its executable instead. The browser test starts a local production server on port 3100.
+
+It applies three different PNGs through Studio, exercises the actual Blob client multipart flow with mocked storage, checks the uploaded JSON is v2 with three distinct A/B/C images, opens the returned link in a fresh browser context, and verifies the selector is inside the viewport on desktop/mobile, all variants can be selected, Canvas/background remain stable, and upload/edit controls are absent. It also checks the legacy v1 viewer. No real cloud storage is accessed. `npm test` separately checks v2 finalization/restoration and rejects v2 submissions to the legacy v1 writer without breaking v1 creation.
