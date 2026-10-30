@@ -1,0 +1,13 @@
+const test=require('node:test'),assert=require('node:assert/strict'),ts=require('typescript'),fs=require('node:fs'),path=require('node:path');
+function load(file){const mod={exports:{}};new Function('require','exports','module',ts.transpileModule(fs.readFileSync(file,'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS}}).outputText)(name=>name.startsWith('.')?load(path.resolve(path.dirname(file),name+'.ts')):require(name),mod.exports,mod);return mod.exports;}
+const {constrainShareCamera,insideCanClearance,frameShareCamera,SHARE_CAMERA_BOUNDS}=load('app/share-camera.ts');
+test('close camera movements cannot enter or tunnel across the complete can envelope',()=>{
+ for(const [from,to]of [[[0,0,4],[0,0,0]],[[4,0,0],[-4,0,0]],[[0,4,0],[0,-4,0]],[[0,0,-4],[0,0,4]]]){const result=constrainShareCamera(from,to);assert.equal(insideCanClearance(result),false);assert.notDeepEqual(result,to);assert.ok(result.some((n,i)=>Math.abs(n)>=SHARE_CAMERA_BOUNDS[i]));}
+});
+test('free orbit/pan away from the model is preserved and an invalid starting point is recovered',()=>{assert.deepEqual(constrainShareCamera([2,0,4],[3,2,3]),[3,2,3]);assert.deepEqual(constrainShareCamera([.8,0,0],[.8,0,2]),[.8,0,2]);assert.equal(insideCanClearance(constrainShareCamera([0,0,0],[.1,.1,.1])),false);assert.deepEqual(constrainShareCamera([0,0,0],[3,2,3]),[3,2,3]);});
+test('swept moves remain outside the near-plane clearance even for large diagonal pan jumps',()=>{for(let i=0;i<100;i++){const angle=i*Math.PI/50,from=[Math.cos(angle)*4,Math.sin(angle)*.2,Math.sin(angle)*4],to=from.map(n=>-n);const result=constrainShareCamera(from,to);assert.equal(insideCanClearance(result),false);assert.ok(Math.hypot(...result)>0);}});
+test('initial Share framing recenters the target, retains orientation and fits every viewport',()=>{
+ const view={position:[2,.5,1],target:[1,.2,.5],rotation:2};
+ for(const [width,height]of [[1440,900],[390,844],[320,568],[844,390]]){const frame=frameShareCamera(view,width,height);assert.deepEqual(frame.target,[0,0,0]);const direction=view.position.map((n,i)=>n-view.target[i]);const scale=frame.position[0]/direction[0];for(let i=0;i<3;i++)assert.ok(Math.abs(frame.position[i]-direction[i]*scale)<1e-9);assert.equal(insideCanClearance(frame.position),false);const distance=Math.hypot(...frame.position),halfVertical=15*Math.PI/180,halfHorizontal=Math.atan(Math.tan(halfVertical)*width/height);assert.ok(distance*Math.sin(Math.min(halfVertical,halfHorizontal))>Math.hypot(.26,.67));assert.ok(frame.maxDistance>=distance);}
+ assert.ok(Math.hypot(...frameShareCamera(view,390,844).position)>Math.hypot(...frameShareCamera(view,1440,900).position));
+});

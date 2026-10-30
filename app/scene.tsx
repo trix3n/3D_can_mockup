@@ -3,11 +3,12 @@ import {Canvas,useFrame,useThree} from '@react-three/fiber';
 import {OrbitControls,ContactShadows} from '@react-three/drei';
 import * as THREE from 'three';
 import {ViewState} from './share-state';
+import ShareCameraControls from './share-camera-controls';
 import StudioLighting from './studio-lighting';
 import {CAN,CIRCUMFERENCE} from './label-layout';
 import {bodyProfile,CanLid} from './can-geometry';
 import {useEffect,useMemo,useRef,useState,MutableRefObject,ComponentRef} from 'react';
-type Props={initialView?:ViewState;viewState?:MutableRefObject<ViewState|undefined>;lightIntensity:number;lightHardness:number;cameraMode:'orbit'|'pan';resetCamera:number;background:string;image:string|null;auto:boolean;labelHeight:number;labelBottom:number;capture:MutableRefObject<null|((d:number,q:string)=>Promise<Blob>)>;onReady:()=>void;recording:boolean};
+type Props={publicViewer?:boolean;initialView?:ViewState;viewState?:MutableRefObject<ViewState|undefined>;lightIntensity:number;lightHardness:number;cameraMode:'orbit'|'pan';resetCamera:number;background:string;image:string|null;auto:boolean;labelHeight:number;labelBottom:number;capture:MutableRefObject<null|((d:number,q:string)=>Promise<Blob>)>;onReady:()=>void;recording:boolean};
 function makeTexture(){const c=document.createElement('canvas');c.width=1024;c.height=768;const x=c.getContext('2d')!;x.fillStyle='#d9ed5b';x.fillRect(0,0,1024,768);x.fillStyle='#213e2b';x.textAlign='center';x.font='bold 110px Georgia';x.fillText('zest',768,230);x.font='19px sans-serif';x.fillText('A LITTLE MORE ALIVE.',768,280);x.font='bold 30px sans-serif';x.fillText('YUZU & LIME',768,555);x.font='17px sans-serif';x.fillText('SPARKLING BOTANICAL WATER',768,590);x.fillText('250 ml   /   NATURALLY BRIGHT',768,655);for(let i=0;i<7;i++){x.strokeStyle='#3c603e';x.lineWidth=2;x.beginPath();x.ellipse(768,420,95-i*10,65-i*7,-.4,0,Math.PI*2);x.stroke();}return c;}
 function Can({p,turn}:{p:Props;turn:React.MutableRefObject<{active:boolean;start:number;duration:number}>}){const group=useRef<THREE.Group>(null);const [texture,setTexture]=useState<THREE.Texture|null>(null);const body=useMemo(()=>new THREE.LatheGeometry(bodyProfile.map(([r,y])=>new THREE.Vector2(r,y)),128),[]);
  useEffect(()=>{let cancelled=false;let tex:THREE.Texture;async function load(){let c:HTMLCanvasElement;if(p.image){const im=await new Promise<HTMLImageElement>((resolve,reject)=>{const i=new Image();i.onload=()=>resolve(i);i.onerror=reject;i.src=p.image!;});c=document.createElement('canvas');c.width=2048;c.height=Math.round(2048*p.labelHeight/(CIRCUMFERENCE-CAN.gap));const ctx=c.getContext('2d')!;ctx.drawImage(im,0,0,c.width,c.height);}else c=makeTexture();tex=new THREE.CanvasTexture(c);tex.colorSpace=THREE.SRGBColorSpace;tex.anisotropy=8;if(!cancelled)setTexture(tex);else tex.dispose();}load().catch(()=>{});return()=>{cancelled=true;};},[p.image,p.labelHeight]);
@@ -66,6 +67,6 @@ export default function Scene(p:Props){
  <StudioLighting intensity={p.lightIntensity} hardness={p.lightHardness}/>
  <Can p={p} turn={turn}/>
  <ContactShadows frames={1} position={[0,-.675,0]} opacity={.35} scale={5} blur={2.8} far={2}/>
- <CameraControls p={p}/><Capture p={p} turn={turn}/>
+ {p.publicViewer?<ShareCameraControls initialView={p.initialView} mode={p.cameraMode} reset={p.resetCamera}/>:<CameraControls p={p}/>}<Capture p={p} turn={turn}/>
  </Canvas>;
 }
