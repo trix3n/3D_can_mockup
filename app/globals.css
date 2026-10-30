@@ -42,3 +42,18 @@
  .share-signature{gap:3px}
  .share-signature strong{font-size:26px}
 }
+
+/* Share headline mirrors the Studio's two-line composition. */
+.shared-preview{--share-header-height:max(124px,calc(88px + clamp(26px,3.7vw,60px)*2.28))}
+.share-headline{position:absolute;z-index:2;top:76px;left:5%;max-width:calc((100% - 420px)/2 - 5% - 20px);margin:0;color:#26372d;font-family:Manrope,Arial,sans-serif;font-size:clamp(26px,3.7vw,60px);font-weight:400;line-height:1.14;letter-spacing:-.055em;pointer-events:none}
+.share-headline span{display:block;color:inherit;white-space:nowrap}
+@media(max-width:900px){
+ .shared-preview{--share-header-height:200px}
+ .share-headline{top:68px;left:20px;max-width:calc(100% - 40px);font-size:clamp(28px,7.7vw,36px)}
+ .shared-preview .variant-tabs{top:148px}
+}
+@media(max-height:500px) and (min-width:681px){
+ .shared-preview{--share-header-height:132px}
+ .share-headline{top:70px;left:5%;max-width:calc((100% - 420px)/2 - 5% - 20px);font-size:26px}
+ .shared-preview .variant-tabs{top:76px}
+}
