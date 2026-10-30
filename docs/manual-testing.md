@@ -48,3 +48,13 @@ Public payload URLs can remain accessible until physical deletion and previously
 After `npm ci`, run `npx playwright install chromium`, `npm run build`, then `npm run test:share`. If Chromium is already installed, set `PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH` to its executable instead. The browser test starts a local production server on port 3100.
 
 It applies three different PNGs through Studio, exercises the actual Blob client multipart flow with mocked storage, checks the uploaded JSON is v2 with three distinct A/B/C images, opens the returned link in a fresh browser context, and verifies the selector is inside the viewport on desktop/mobile, all variants can be selected, Canvas/background remain stable, and upload/edit controls are absent. It also checks the legacy v1 viewer. No real cloud storage is accessed. `npm test` separately checks v2 finalization/restoration and rejects v2 submissions to the legacy v1 writer without breaking v1 creation.
+
+## Full-viewport Share inspection
+
+The public Share canvas fills the complete dynamic viewport (`100dvh`, with a `100vh` fallback). Header, A/B/C, navigation and LONGRAY are transparent overlays and do not reserve or subtract canvas space. Branding and headline remain non-interactive; the controls receive pointer input.
+
+On opening/resetting a Share, the viewer retains the saved camera direction and can rotation, centers the can, and increases camera distance where necessary to show the whole can. This also handles snapshots saved while panned or closely zoomed. Field of view, lighting and label settings are unchanged. Once inspection starts, viewport/browser-chrome resize preserves the user's current position/target. A/B/C switching does not reset the camera. Studio still uses its existing controls and distances.
+
+Inspect the label at a strong zoom and pan across the viewport: clipping may occur at the actual browser edges, but there must be no internal rectangular cutoff. The Share-only camera guard sweeps movements against the full can envelope plus near-plane clearance, preventing both zoom penetration and tunneling during a large pan. Reset view must restore a centered whole-can view.
+
+Run `npm run build` and `npm run test:share`. Fullscreen browser coverage observes rendered camera uniforms, exercises strong zoom, pan, variant switching, dynamic-height resize and orientation changes, and checks canvas bounds against the viewport throughout. Unit tests cover collision recovery, large cross-model movements and initial framing. No real Blob requests are used in these checks.
